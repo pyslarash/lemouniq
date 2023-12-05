@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiple File Upload</title>
+</head>
+
+<body>
+    <h1>Multiple File Upload</h1>
+    <input type="file" id="file-input" multiple>
+    <button onclick="uploadFiles()">Upload Files</button>
+
+    <div id="progress"></div>
+    <div id="result"></div>
+
+    <script>
+        function uploadFiles() {
+            const input = document.getElementById('file-input');
+            const files = input.files;
+
+            if (files.length === 0) {
+                alert('Please select files to upload.');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('image', files[i]);
+            }
+
+            fetch('http://127.0.0.1:5000/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle the response from the backend
+                displayResult(data.processed_data);
+            })
+            .catch(error => {
+                console.error(error);
+            });
+        }
+
+        function displayResult(processedData) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '';
+
+            processedData.forEach(fileData => {
+                const filename = fileData.filename;
+                const filePath = fileData.file_path;
+                const processingPercentage = fileData.processing_percentage;
+
+                const fileResult = document.createElement('div');
+                fileResult.innerHTML = `<strong>Filename:</strong> ${filename}<br>
+                                       <strong>File Path:</strong> ${filePath}<br>
+                                       <strong>Processing Percentage:</strong> ${processingPercentage.toFixed(2)}%<hr>`;
+
+                resultDiv.appendChild(fileResult);
+            });
+        }
+    </script>
+</body>
+
+</html>

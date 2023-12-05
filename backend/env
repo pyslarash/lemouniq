@@ -1,0 +1,15 @@
+UPLOAD_FOLDER=uploaded # We upload our images in this folder
+OUTPUT_FOLDER=for-download # The images will be downloaded from this folder
+MOCKUP_FOLDER=mockups # This is the folder with mockups
+DESCRIPTION_FOLDER=descriptions # This is the folder with mockups
+RESIZED_FILE_ENDING=_resized.png
+PRINTFUL_TOKEN= # Insert Printful token here
+IMG_BB_TOKEN= # Insert ImgBB Token here
+OPENAI_API_KEY= # Insert OpenAI API Key
+
+# Database variables
+DB_NAME=
+DB_USERNAME=
+DB_PASSWORD=
+DB_HOST=
+DB_PORT=
