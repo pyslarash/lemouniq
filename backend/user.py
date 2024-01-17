@@ -7,8 +7,10 @@ from urllib.parse import quote_plus
 from dotenv import load_dotenv
 from datetime import datetime
 from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from pybloom_live import BloomFilter
 import secrets
+from urllib.parse import quote_plus
 
 # Bearer token import
 from flask_jwt_extended import JWTManager
@@ -55,15 +57,24 @@ def check_mail_connection():
     try:
         # Your email server settings
         mail_server = os.getenv('MAIL_SERVER')
+        print(f"Mail server: {mail_server}")
         mail_port = int(os.getenv('MAIL_PORT', 465))
+        print(f"Mail port: {mail_port}")
         mail_username = os.getenv('MAIL_USERNAME')
+        print(f"Mail username: {mail_username}")
         mail_password = os.getenv('MAIL_PASSWORD')
+        print(f"Mail password: {mail_password}")
 
         # Create the MIMEText object
         message = MIMEMultipart()
         sender_name = os.getenv("MAIL_SENDER_NAME")
-        message['From'] = f'{sender_name} <{os.getenv("MAIL_DEFAULT_SENDER")}>'
-        message['To'] = ', '.join([os.getenv('MAIL_RECEPIENT')])
+        print(f"Mail sender name: {sender_name}")
+        default_sender=os.getenv("MAIL_DEFAULT_SENDER")
+        message['From'] = f'{sender_name} <{default_sender}>'
+        print(f"Mail default sender: {default_sender}")
+        recipient=os.getenv('MAIL_RECEPIENT')
+        message['To'] = ', '.join([recipient])
+        print(f"Mail recipient: {recipient}")
         message['Subject'] = "Hi! I'm just running a test!"
         message.attach(MIMEText("This is a test", 'plain'))
 
@@ -95,7 +106,6 @@ def is_weak_password(password):
     return password in bloom_filter
 
 # Creating a user
-
 def register():
     data = request.get_json()
 
@@ -114,7 +124,7 @@ def register():
 
     # Check if the email is already registered
     if User.query.filter_by(email=data['email']).first():
-        return jsonify({"error": "Email address is already in use. Please choose another."}), 400
+        return jsonify({"error": "Email address is already in use. Please choose another email."}), 400
     
     # Generate a verification code
     verification_code = generate_verification_code()
@@ -125,8 +135,9 @@ def register():
         last_name=data['last_name'],
         email=data['email'],
         password=ph.hash(data['password']),  # Hashing the password using Argon2
-        user_type=data.get('user_type', 'User'),
+        role=data.get('role', 'user'),
         email_list=data.get('email_list', False),  # Default to False if not provided
+        logged_in=data.get('logged_in', True),
         verified_email=data.get('verified_email', False),  # Default to False if not provided
         verification_code=verification_code,
         verification_code_created_at = datetime.utcnow(),
@@ -149,7 +160,7 @@ def register():
         "verified_email": new_user.verified_email,
         "access_token": access_token
     }), 200
-
+    
 # Function that sends an email with the verification code
 def send_verification_code(user):
     verification_code = user.verification_code
@@ -253,3 +264,73 @@ def send_new_verification_code():
     send_verification_code(user)
 
     return jsonify({"message": "New verification code has been sent"}), 200
+
+@jwt_required()
+def logout():
+    # Get the current user's identity from the JWT token
+    current_user_email = get_jwt_identity()
+
+    # Check if the user is already logged out
+    user = User.query.filter_by(email=current_user_email).first()
+    if not user or not user.logged_in:
+        return jsonify({"message": "User is already logged out."}), 200
+
+    # Optionally, you can perform additional actions here before logging out.
+
+    # Set the user's 'logged_in' status to False in the database
+    user.logged_in = False
+    db.session.commit()  # Save the changes to the database
+
+    # Create a new access token with a short expiration time (revoking the current token)
+    # This effectively logs the user out by invalidating their current access token
+    new_access_token = create_access_token(identity=current_user_email, expires_delta=False)
+
+    # Set the new access token in a response cookie (you can customize this part)
+    response = jsonify({"message": "Logged out successfully"})
+    response.set_cookie('access_token', new_access_token, httponly=True, secure=True)  # Customize the cookie settings
+
+    return response, 200
+
+# Verify the password against the hashed password
+def verify_password(plain_password, hashed_password):
+    try:
+        ph.verify(hashed_password, plain_password)
+        return True  # Passwords match
+    except VerifyMismatchError:
+        return False  # Passwords do not match
+
+# Login an existing user and generate a bearer token
+def login():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Invalid JSON data"}), 400
+
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Check if the user is already logged in
+    if user.logged_in:
+        return jsonify({"message": "User is already logged in."}), 200
+
+    if verify_password(password, user.password):
+        # Set user as logged in in the database
+        user.logged_in = True
+        db.session.commit()  # Save the changes to the database
+
+        # Generate a bearer token for the authenticated user
+        access_token = create_access_token(identity=user.email)
+        return jsonify({
+            "message": "Login successful",
+            "access_token": access_token
+        }), 200
+    else:
+        return jsonify({"error": "Incorrect password"}), 401

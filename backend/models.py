@@ -32,6 +32,41 @@ db = SQLAlchemy()
 # Creating Flask-Migrate instance
 migrate = Migrate(app, db)
 
+# User table with information about the user
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(255))
+    last_name = db.Column(db.String(255))
+    email = db.Column(db.String(255))
+    password = db.Column(db.String(255))
+    role = db.Column(db.String(255))
+    email_list = db.Column(db.Boolean)
+    verified_email = db.Column(db.Boolean)
+    verification_code = db.Column(db.String(255))
+    verification_code_created_at = db.Column(db.TIMESTAMP)
+    logged_in = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.TIMESTAMP)
+    updated_at = db.Column(db.TIMESTAMP)
+
+    orders = db.relationship("Order", back_populates="user")
+    cart_items = db.relationship("Cart", back_populates="user")
+    email_subscriptions = db.relationship("EmailList", back_populates="user")
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'email': self.email,
+            'user_type': self.user_type,
+            'email_list': self.email_list,
+            'verified_email': self.verified_email,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+        
 # Product categories
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -179,40 +214,6 @@ class OrderItem(db.Model):
             'price_per_unit': self.price_per_unit
         }
 
-# User table with information about the user
-class User(db.Model):
-    __tablename__ = 'users'
-
-    id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String(255))
-    last_name = db.Column(db.String(255))
-    email = db.Column(db.String(255))
-    password = db.Column(db.String(255))
-    user_type = db.Column(db.String(255))
-    email_list = db.Column(db.Boolean)
-    verified_email = db.Column(db.Boolean)
-    verification_code = db.Column(db.String(255))
-    verification_code_created_at = db.Column(db.TIMESTAMP)
-    created_at = db.Column(db.TIMESTAMP)
-    updated_at = db.Column(db.TIMESTAMP)
-
-    orders = db.relationship("Order", back_populates="user")
-    cart_items = db.relationship("Cart", back_populates="user")
-    email_subscriptions = db.relationship("EmailList", back_populates="user")
-
-    def serialize(self):
-        return {
-            'id': self.id,
-            'first_name': self.first_name,
-            'last_name': self.last_name,
-            'email': self.email,
-            'user_type': self.user_type,
-            'email_list': self.email_list,
-            'verified_email': self.verified_email,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
 # Information about what the user put in the cart
 class Cart(db.Model):
     __tablename__ = 'cart'
@@ -255,6 +256,6 @@ class EmailList(db.Model):
             'first_name': self.first_name,
             'email': self.email
         }
-
+        
 if __name__ == '__main__':
     app.run()

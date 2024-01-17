@@ -2,19 +2,21 @@ from flask import Flask
 from flask_cors import CORS
 from image_processing import *
 from user import *
+from admin import *
 from models import db, migrate
 import os
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
+from flask_security import Security, SQLAlchemyUserDatastore, RoleMixin, UserMixin
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 load_dotenv()
 
 # Configure the Flask app with the JWT secret key
-app.config["JWT_SECRET_KEY"] = quote_plus(os.getenv('JWT_SECRET_KEY'))
+app.config["JWT_SECRET_KEY"] = os.getenv('JWT_SECRET_KEY')
 
 # Initialize the Flask JWT extension
 jwt = JWTManager(app)
@@ -48,9 +50,15 @@ app.route('/upload', methods=['POST'])(upload_file)  # Endpoint to upload images
 # User processing
 
 app.route('/register', methods=['POST'])(register)  # Endpoint to register a user
+app.route('/logout', methods=['POST'])(logout)  # Endpoint to logout a user
+app.route('/login', methods=['POST'])(login)  # Endpoint to logout a user
 app.route('/check_mail_connection', methods=['GET'])(check_mail_connection)  # Endpoint to check email connection
-app.route('/verify_code', methods=['POST'])(verify_code)  # Endpoint to register a user
+app.route('/verify_code', methods=['POST'])(verify_code)  # Endpoint to verify verification code
 app.route('/send_new_verification_code', methods=['POST'])(send_new_verification_code)  # Endpoint to send a new verification code
+
+# Admin processing
+
+app.route('/register_admin', methods=['POST'])(register_admin)  # Endpoint to register an admin (email verified by default)
 
 # SCHEDULED TASKS
 scheduler = BackgroundScheduler()
